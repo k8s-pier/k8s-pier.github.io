@@ -205,18 +205,6 @@ ul.plain{margin:0;padding-left:20px}
 ul.plain li{margin:6px 0}
 .no li::marker{content:"✕  ";color:var(--warn)}
 
-/* timeline */
-.tl{list-style:none;margin:0;padding:0;position:relative}
-.tl::before{content:"";position:absolute;left:11px;top:6px;bottom:6px;width:2px;background:var(--line)}
-.tl li{position:relative;padding:0 0 22px 40px}
-.tl li::before{content:"";position:absolute;left:4px;top:5px;width:16px;height:16px;border-radius:50%;background:var(--surface);border:2px solid var(--line)}
-.tl li.done::before{background:var(--ok);border-color:var(--ok)}
-.tl li.now::before{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 5px var(--accent-soft)}
-.tl b{display:block}
-.tl span{color:var(--muted);font-size:14px}
-.tl .st{font-size:12px;font-weight:700;margin-left:6px;padding:1px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted)}
-.tl .done .st{background:var(--ok-soft);color:var(--ok)}
-.tl .now .st{background:var(--accent-soft);color:var(--accent)}
 
 footer{border-top:1px solid var(--line);padding:32px 0 48px;color:var(--muted);font-size:14px}
 footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-between}
@@ -240,7 +228,6 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
       <a href="#backup">Бэкапы</a>
       <a href="#adapters">Облака</a>
       <a href="#capy">Провайдер</a>
-      <a href="#status">Статус</a>
     </nav>
     <button class="theme-btn" id="themeBtn" type="button" aria-label="Переключить тему">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
@@ -253,8 +240,8 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
 
 <div class="hero">
   <span class="eyebrow">Бакалаврская ВКР · 09.03.04</span>
-  <h1>Отдельный Kubernetes-кластер для команды — <span>по запросу, а не по заявке</span></h1>
-  <p class="lead">Pier — сервис, который создаёт командам отдельные Kubernetes-кластеры на ресурсах облачного провайдера. Он следит за квотами, усыпляет кластеры, пока они не нужны, показывает их стоимость и делает бэкапы. Решения о правах при этом остаются у платформы разработки, к которой Pier подключён.</p>
+  <h1>Kubernetes-кластер для команды — <span>как сервис, а не ручная выдача</span></h1>
+  <p class="lead">Виртуальную машину в большой компании давно получают сами, через внутренний сервис (VMaaS). Pier делает то же для Kubernetes-кластеров (KaaS): команда запрашивает кластер из своей платформы разработки и получает его автоматически, в пределах квоты и по правилам, которые задала платформа. Без инженера и без доступа к консоли облака.</p>
   <ul class="pills">
     <li><b>Кластер</b> за запрос к API</li>
     <li><b>Квота</b> на команду</li>
@@ -263,7 +250,6 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
     <li><b>Стоимость</b> видна заранее</li>
     <li><b>Бэкапы</b> с проверкой восстановления</li>
   </ul>
-  <p class="note">Проект на стадии проектирования. Здесь описано целевое устройство; часть допущений (особенно сон кластера в облаке) ещё проверяется на стенде.</p>
 </div>
 
 </div>
@@ -271,31 +257,38 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
 <section id="problem">
 <div class="wrap">
   <span class="num">01 · ПРОБЛЕМА</span>
-  <h2>Сейчас кластер получают через человека</h2>
-  <p class="sub">Командам нужны свои кластеры: для проектов, стендов, курсов, лабораторных и хакатонов. Обычно это выглядит как заявка специалисту — и всё, что дальше, держится на нём.</p>
+  <h2>Кластеры раздают вручную</h2>
+  <p class="sub">В компании много команд, и каждой нужно где-то запускать свои сервисы: стенды, тестовые окружения, демо, эксперименты. Отдельный кластер для каждой обычно выдают руками: делает инженер инфраструктуры или кто-то с доступом к консоли облака. Пока команд мало, это работает. Когда их десятки, ручная выдача становится узким местом.</p>
   <div class="grid2 compare">
     <div class="card">
-      <h3>По заявке <span class="tag bad">сейчас</span></h3>
+      <h3>Ручная выдача <span class="tag bad">через человека</span></h3>
       <ol class="steps">
-        <li>Найти исполнителя<small>инфраструктурная команда с очередью или свой человек, которого надо учить</small></li>
-        <li>Проверить квоту вручную</li>
-        <li>Создать машины, поставить Kubernetes, настроить сеть<small>Terraform, Ansible, kubespray или руками</small></li>
-        <li>Передать доступ<small>как именно — нигде не записано</small></li>
+        <li>Команда просит кластер у инженера<small>или у того, у кого есть доступ к консоли облака</small></li>
+        <li>Инженер решает, можно ли, и проверяет лимиты<small>по памяти и по своим правилам</small></li>
+        <li>Создаёт кластер в консоли или скриптами<small>когда дойдут руки</small></li>
+        <li>Передаёт доступ<small>как именно, нигде не записано</small></li>
         <li>Масштабировать и удалять тем же путём</li>
       </ol>
-      <p style="margin-top:14px">Чей кластер — неизвестно. Сколько стоит — не видно. Простаивающие кластеры тратят деньги, а бэкапов нет или их никто не проверял.</p>
+      <p style="margin-top:14px">Чей кластер, со временем непонятно. Сколько он стоит, не видно. Забытые кластеры работают и тратят деньги, бэкапы никто не проверял.</p>
     </div>
     <div class="card">
-      <h3>С Pier <span class="tag good">цель</span></h3>
+      <h3>Кластер как сервис <span class="tag good">с Pier</span></h3>
       <ol class="steps good-list">
-        <li>Запрос из платформы или веб-интерфейса<small>размер, версия и набор дополнений берутся из шаблона</small></li>
+        <li>Команда запрашивает кластер сама<small>из платформы разработки или через API, по готовому шаблону</small></li>
         <li>Права проверяет платформа, квоту — Pier<small>автоматически, в момент запроса</small></li>
-        <li>Кластер создаётся без участия человека<small>через Cluster API в облаке</small></li>
-        <li>Команда получает доступ<small>и кластер записан за её тенантом</small></li>
-        <li>Дальше — сон, срок жизни, бэкапы, отчёт о стоимости</li>
+        <li>Кластер создаётся без участия человека<small>в облаке, через Cluster API</small></li>
+        <li>Команда получает доступ<small>кластер записан за ней</small></li>
+        <li>Дальше сон, срок жизни, бэкапы и учёт стоимости</li>
       </ol>
-      <p style="margin-top:14px">Принадлежность, потребление и все действия фиксируются. Кластер, который никому не нужен, спит или удаляется по сроку.</p>
+      <p style="margin-top:14px">Правила задаются один раз на платформе и дальше работают сами. Видно, чей кластер и сколько он стоит. Ненужный кластер спит или удаляется по сроку.</p>
     </div>
+  </div>
+  <h3 style="margin:36px 0 14px;font-size:18px">Где пригодится</h3>
+  <div class="grid4">
+    <div class="card"><h3>Стенды команд</h3><p>Отдельное окружение под проект или под ветку, без очереди к инфраструктуре.</p></div>
+    <div class="card"><h3>Тесты и CI</h3><p>Чистый кластер на время прогона, потом удаляется по сроку жизни.</p></div>
+    <div class="card"><h3>Демо и эксперименты</h3><p>Показать заказчику или попробовать новую версию Kubernetes, не трогая общий кластер.</p></div>
+    <div class="card"><h3>Обучение</h3><p>Свой кластер у каждой группы на время курса. Из этой задачи идея и выросла.</p></div>
   </div>
 </div>
 </section>
@@ -315,7 +308,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
       <!-- team -->
       <rect class="box2" x="20" y="80" width="240" height="56" rx="10"/>
       <text class="tb" x="38" y="104">Команда</text>
-      <text class="ts" x="38" y="124" textLength="210" lengthAdjust="spacingAndGlyphs">студенты, преподаватели, разработчики</text>
+      <text class="ts" x="38" y="124" textLength="210" lengthAdjust="spacingAndGlyphs">разработчики, тестировщики, команды</text>
       <!-- platform -->
       <rect class="grp" x="20" y="160" width="240" height="210" rx="14"/>
       <text class="th" x="38" y="188">Платформа разработки</text>
@@ -387,7 +380,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
       </g>
       <g opacity=".75">
         <rect class="box" x="758" y="366" width="244" height="72" rx="10" style="stroke-dasharray:5 4"/>
-        <text class="tb" x="772" y="390">Кластер курса C</text>
+        <text class="tb" x="772" y="390">Кластер команды C</text>
         <text class="ts" x="772" y="412">спит: машины остановлены,</text>
         <text class="ts" x="772" y="428">диски сохранены</text>
       </g>
@@ -554,7 +547,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
 <div class="wrap">
   <span class="num">05 · СОН И СТОИМОСТЬ</span>
   <h2>Кластер спит, пока не нужен</h2>
-  <p class="sub">Отдельный кластер дороже общего: у каждого свои машины и балансировщик. Поэтому сон, срок жизни и учёт стоимости — не дополнение, а условие, без которого отдельные кластеры для учебной группы обходятся слишком дорого.</p>
+  <p class="sub">Отдельный кластер дороже общего: у каждого свои машины и балансировщик. Поэтому сон, срок жизни и учёт стоимости — не дополнение, а условие, без которого отдельный кластер на каждую команду обходится слишком дорого.</p>
   <div class="sleep-demo">
     <div class="card" id="sleepCard">
       <div class="seg" role="group" aria-label="Состояние кластера">
@@ -562,7 +555,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
         <button type="button" data-mode="sleep" aria-pressed="false">Спит</button>
       </div>
       <div class="cluster" id="cluster">
-        <h4>Кластер курса «Администрирование Kubernetes» <span class="state" id="stateLbl">работает</span></h4>
+        <h4>Кластер стенда команды «Платежи» <span class="state" id="stateLbl">работает</span></h4>
         <div class="rowlbl">Управляющие узлы</div>
         <div class="chips">
           <span class="chip stop"><i></i>ВМ 1 <em class="st">работает</em></span>
@@ -587,7 +580,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
     </div>
     <div class="sleep-text">
       <p><b>Как усыпляется.</b> Pier ставит кластер на паузу в Cluster API, чтобы тот не пытался «чинить» остановленные машины, затем останавливает ВМ и балансировщик через API облака. При пробуждении — в обратном порядке: сначала управляющие узлы, потом рабочие.</p>
-      <p><b>Когда.</b> Вручную, по расписанию (выходные, каникулы, время между занятиями) или по запросу при следующем обращении. Срок жизни (TTL) удаляет кластер, который больше не нужен, — например, после хакатона.</p>
+      <p><b>Когда.</b> Вручную, по расписанию (ночью, в выходные) или по запросу при следующем обращении. Срок жизни (TTL) удаляет кластер, который больше не нужен, — например, после окончания теста или демо.</p>
       <p><b>Сколько стоит.</b> До создания пользователь видит оценку в рублях в месяц. Потом Pier считает стоимость по событиям: <code>ресурсы × цена × часы</code>, а часы сна и удалённые по сроку кластеры дают сумму «сэкономлено за период» по каждой команде.</p>
       <p class="out" id="sleepOut">Сейчас оплачиваются все машины, балансировщик и диски.</p>
       <p style="color:var(--muted);font-size:14px">Это оценка по каталогу цен облака, а не счёт. Если полный сон не подтвердится на стенде, его заменит сон только рабочих узлов — экономии меньше, но функция останется.</p>
@@ -667,11 +660,11 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
       <text class="tb" x="418" y="111">Docker · тесты и демонстрация</text>
       <text class="ts" x="418" y="131">Cluster API + CAPD: настоящие кластеры в контейнерах, без облака и затрат</text>
       <rect class="box" x="400" y="154" width="480" height="56" rx="10" style="stroke-dasharray:5 4"/>
-      <text class="tb" x="418" y="178">Selectel · если хватит времени</text>
+      <text class="tb" x="418" y="178">Selectel · второе облако</text>
       <text class="ts" x="418" y="198">Cluster API + CAPO (OpenStack): проверка, что меняется только адаптер</text>
     </svg>
     </div>
-    <figcaption>Отдельные полноценные кластеры, а не виртуальные: цель учебного сценария — администрирование Kubernetes, а для него нужен весь кластер, включая управляющие узлы и etcd.</figcaption>
+    <figcaption>Отдельные полноценные кластеры, а не виртуальные: команда получает весь кластер, включая управляющие узлы, и может делать в нём что угодно, не мешая другим.</figcaption>
   </figure>
 </div>
 </section>
@@ -695,7 +688,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
     </tbody>
   </table>
   </div>
-  <p style="color:var(--muted);font-size:14px;margin:16px 0 0">На живом облаке форк ещё не проверялся — это первый шаг следующего этапа. Код и заметки об обновлении: <a href="https://github.com/k8s-pier/cluster-api-provider-yandex">github.com/k8s-pier/cluster-api-provider-yandex</a>.</p>
+  <p style="color:var(--muted);font-size:14px;margin:16px 0 0">Код и заметки об обновлении: <a href="https://github.com/k8s-pier/cluster-api-provider-yandex">github.com/k8s-pier/cluster-api-provider-yandex</a>.</p>
 </div>
 </section>
 
@@ -725,32 +718,6 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
         <li>не создаёт виртуальные кластеры и не собирает образы узлов.</li>
       </ul>
     </div>
-  </div>
-</div>
-</section>
-
-<section id="status">
-<div class="wrap">
-  <span class="num">10 · СТАТУС</span>
-  <h2>Где проект сейчас</h2>
-  <p class="sub">Порядок выбран так, чтобы узнать о препятствиях в облаке до того, как под него написан код, и отладить основное на бесплатном Docker-адаптере.</p>
-  <div class="grid2">
-    <ul class="tl">
-      <li class="done"><b>Концепция и проектирование <span class="st">готово</span></b><span>компоненты, сценарии, модель данных, API, контракт с платформой, риски</span></li>
-      <li class="done"><b>Переработка провайдера CAPY <span class="st">готово</span></b><span>Cluster API v1.14, контракт v1beta2, проверено без облака</span></li>
-      <li class="now"><b>Проверка на облаке <span class="st">следующий шаг</span></b><span>создать, усыпить, разбудить и удалить кластер в Yandex Cloud вручную</span></li>
-      <li><b>Каркас сервиса</b><span>API, база, вход, права, квоты</span></li>
-    </ul>
-    <ul class="tl">
-      <li><b>Согласование и Docker-адаптер</b><span>кластер создаётся, масштабируется и удаляется без облака</span></li>
-      <li><b>Дополнения и бэкапы</b><span>копия и восстановление</span></li>
-      <li><b>Адаптер Yandex Cloud</b><span>то же самое в облаке, те же тесты</span></li>
-      <li><b>Сон, срок жизни, стоимость, интерфейс, замеры</b><span>демонстрация и экономическая часть</span></li>
-    </ul>
-  </div>
-  <div class="card" style="margin-top:12px">
-    <h3>Что увидит зритель демонстрации</h3>
-    <p>Стенд с Keycloak и OPA вместо настоящей платформы: создать, масштабировать, усыпить, забэкапить, восстановить и удалить кластер; упереться в квоту; убедиться, что чужая команда не видит твой кластер; поменять правила на платформе и увидеть, как меняются доступные действия; посмотреть стоимость и экономию по команде.</p>
   </div>
 </div>
 </section>
