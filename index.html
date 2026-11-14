@@ -83,6 +83,11 @@ section h2{font-size:clamp(24px,3.4vw,34px);line-height:1.2;margin:0 0 10px;lett
 .steps li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:8px;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;background:var(--surface-2);color:var(--muted)}
 .compare .good-list li::before{background:var(--ok-soft);color:var(--ok)}
 .steps small{display:block;color:var(--muted);font-size:13px}
+.pc{list-style:none;margin:14px 0 0;padding:0}
+.pc li{position:relative;padding:5px 0 5px 24px;font-size:15px}
+.pc li::before{position:absolute;left:0;top:5px;font-weight:700}
+.pc .plus::before{content:"+";color:var(--ok)}
+.pc .minus::before{content:"\2212";color:var(--warn)}
 
 figure{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
 figure .scroll{overflow-x:auto}
@@ -220,7 +225,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
       Pier
     </a>
     <nav class="links" aria-label="Разделы">
-      <a href="#problem">Проблема</a>
+      <a href="#problem">Зачем</a>
       <a href="#how">Как устроен</a>
       <a href="#flow">Создание кластера</a>
       <a href="#rights">Права</a>
@@ -240,10 +245,10 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
 
 <div class="hero">
   <span class="eyebrow">Бакалаврская ВКР · 09.03.04</span>
-  <h1>Kubernetes-кластер для команды — <span>как сервис, а не ручная выдача</span></h1>
-  <p class="lead">Виртуальную машину в большой компании давно получают сами, через внутренний сервис (VMaaS). Pier делает то же для Kubernetes-кластеров (KaaS): команда запрашивает кластер из своей платформы разработки и получает его автоматически, в пределах квоты и по правилам, которые задала платформа. Без инженера и без доступа к консоли облака.</p>
+  <h1>Kubernetes-кластер — <span>как сервис</span></h1>
+  <p class="lead">Pier выдаёт командам Kubernetes-кластеры как сервис (KaaS). Команда просит кластер и получает его, не разбираясь в облаке, машинах и установке Kubernetes. Кто и сколько может получить, решают правила платформы разработки.</p>
   <ul class="pills">
-    <li><b>Кластер</b> за запрос к API</li>
+    <li><b>Кластер</b> по запросу</li>
     <li><b>Квота</b> на команду</li>
     <li><b>Права</b> решает платформа</li>
     <li><b>Сон</b>, пока кластер не нужен</li>
@@ -256,39 +261,48 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
 
 <section id="problem">
 <div class="wrap">
-  <span class="num">01 · ПРОБЛЕМА</span>
-  <h2>Кластеры раздают вручную</h2>
-  <p class="sub">В компании много команд, и каждой нужно где-то запускать свои сервисы: стенды, тестовые окружения, демо, эксперименты. Отдельный кластер для каждой обычно выдают руками: делает инженер инфраструктуры или кто-то с доступом к консоли облака. Пока команд мало, это работает. Когда их десятки, ручная выдача становится узким местом.</p>
-  <div class="grid2 compare">
+  <span class="num">01 · ЗАЧЕМ</span>
+  <h2>Как командам дают Kubernetes</h2>
+  <p class="sub">Командам нужно где-то запускать свои сервисы. Обычно для этого есть два пути, и у обоих есть предел.</p>
+  <div class="grid3 compare">
     <div class="card">
-      <h3>Ручная выдача <span class="tag bad">через человека</span></h3>
-      <ol class="steps">
-        <li>Команда просит кластер у инженера<small>или у того, у кого есть доступ к консоли облака</small></li>
-        <li>Инженер решает, можно ли, и проверяет лимиты<small>по памяти и по своим правилам</small></li>
-        <li>Создаёт кластер в консоли или скриптами<small>когда дойдут руки</small></li>
-        <li>Передаёт доступ<small>как именно, нигде не записано</small></li>
-        <li>Масштабировать и удалять тем же путём</li>
-      </ol>
-      <p style="margin-top:14px">Чей кластер, со временем непонятно. Сколько он стоит, не видно. Забытые кластеры работают и тратят деньги, бэкапы никто не проверял.</p>
+      <h3>Один общий кластер <span class="tag bad">на всех</span></h3>
+      <p>Каждой команде выдают namespace в большом кластере. Дёшево и просто.</p>
+      <ul class="pc">
+        <li class="plus">хватает, если команде нужно только запускать приложения</li>
+        <li class="minus">одна версия Kubernetes на всех</li>
+        <li class="minus">свои операторы и CRD ставить нельзя</li>
+        <li class="minus">обновление или сбой задевают всех</li>
+      </ul>
     </div>
     <div class="card">
-      <h3>Кластер как сервис <span class="tag good">с Pier</span></h3>
-      <ol class="steps good-list">
-        <li>Команда запрашивает кластер сама<small>из платформы разработки или через API, по готовому шаблону</small></li>
-        <li>Права проверяет платформа, квоту — Pier<small>автоматически, в момент запроса</small></li>
-        <li>Кластер создаётся без участия человека<small>в облаке, через Cluster API</small></li>
-        <li>Команда получает доступ<small>кластер записан за ней</small></li>
-        <li>Дальше сон, срок жизни, бэкапы и учёт стоимости</li>
-      </ol>
-      <p style="margin-top:14px">Правила задаются один раз на платформе и дальше работают сами. Видно, чей кластер и сколько он стоит. Ненужный кластер спит или удаляется по сроку.</p>
+      <h3>Кластер вручную <span class="tag bad">через инженера</span></h3>
+      <p>Отдельный кластер создаёт инженер или тот, у кого есть доступ к консоли облака.</p>
+      <ul class="pc">
+        <li class="plus">команда получает целый кластер</li>
+        <li class="minus">очередь к людям, которых мало</li>
+        <li class="minus">правила выдачи в головах, а не в системе</li>
+        <li class="minus">не видно, чей кластер и сколько стоит</li>
+      </ul>
+    </div>
+    <div class="card" style="border-color:var(--accent)">
+      <h3>Кластер как сервис <span class="tag good">Pier</span></h3>
+      <p>Команда запрашивает кластер сама и получает его автоматически.</p>
+      <ul class="pc">
+        <li class="plus">целый кластер без участия инженера</li>
+        <li class="plus">права и квоты по правилам платформы</li>
+        <li class="plus">видно, чей кластер и сколько стоит</li>
+        <li class="plus">ненужный кластер спит или удаляется</li>
+      </ul>
     </div>
   </div>
+  <p style="color:var(--muted);font-size:14px;margin:16px 0 0;max-width:760px">Общий кластер не плох: если команде хватает своего namespace, он дешевле и проще. Pier нужен там, где команде нужен целый кластер.</p>
   <h3 style="margin:36px 0 14px;font-size:18px">Где пригодится</h3>
   <div class="grid4">
-    <div class="card"><h3>Стенды команд</h3><p>Отдельное окружение под проект или под ветку, без очереди к инфраструктуре.</p></div>
-    <div class="card"><h3>Тесты и CI</h3><p>Чистый кластер на время прогона, потом удаляется по сроку жизни.</p></div>
-    <div class="card"><h3>Демо и эксперименты</h3><p>Показать заказчику или попробовать новую версию Kubernetes, не трогая общий кластер.</p></div>
-    <div class="card"><h3>Обучение</h3><p>Свой кластер у каждой группы на время курса. Из этой задачи идея и выросла.</p></div>
+    <div class="card"><h3>Стенды</h3><p>Своё окружение под проект или ветку.</p></div>
+    <div class="card"><h3>Тесты и CI</h3><p>Чистый кластер на время прогона.</p></div>
+    <div class="card"><h3>Эксперименты</h3><p>Новая версия Kubernetes или оператор, не трогая общий кластер.</p></div>
+    <div class="card"><h3>Обучение</h3><p>Кластер на группу на время курса. С этой задачи всё и началось.</p></div>
   </div>
 </div>
 </section>
@@ -296,8 +310,8 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
 <section id="how">
 <div class="wrap">
   <span class="num">02 · КАК УСТРОЕН</span>
-  <h2>Три участника и облако</h2>
-  <p class="sub">Платформа разработки знает, кто пользователь и что ему можно. Pier знает про квоты, кластеры и деньги. Управляющий кластер с Cluster API превращает описание кластера в машины в облаке.</p>
+  <h2>Платформа, Pier и облако</h2>
+  <p class="sub">Платформа знает, кто пользователь и что ему можно. Pier отвечает за кластеры, квоты и стоимость. Cluster API превращает описание кластера в машины в облаке.</p>
   <figure>
     <div class="scroll">
     <svg class="d" viewBox="0 0 1040 560" role="img" aria-label="Схема: команда и платформа разработки обращаются к Pier, Pier создаёт кластеры в облаке через управляющий кластер">
@@ -336,7 +350,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
       <text class="tb" x="392" y="296">Адаптеры облаков</text>
       <text class="ts" x="392" y="314">Yandex Cloud — основной</text>
       <text class="ts" x="392" y="330">Docker — для тестов</text>
-      <text class="ts" x="392" y="346">Selectel — по возможности</text>
+      <text class="ts" x="392" y="346">Selectel — второе облако</text>
       <!-- arrows team->pier -->
       <line class="ln acc" x1="260" y1="108" x2="358" y2="108" marker-end="url(#ahA)"/>
       <text class="ts" x="310" y="100" text-anchor="middle">запрос + JWT</text>
@@ -393,7 +407,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
       <text class="ts" x="680" y="498" text-anchor="middle">ВМ, сеть, LB</text>
     </svg>
     </div>
-    <figcaption>Pier не обращается к облаку напрямую ради создания машин: он записывает, каким должен быть кластер, а Cluster API в управляющем кластере доводит облако до этого описания. Если управляющий кластер упадёт, уже созданные кластеры команд продолжат работать.</figcaption>
+    <figcaption>Pier описывает, каким должен быть кластер, а Cluster API доводит облако до этого описания. Если управляющий кластер упадёт, кластеры команд продолжат работать.</figcaption>
   </figure>
 
   <div class="grid4" style="margin-top:20px">
@@ -409,7 +423,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
 <div class="wrap">
   <span class="num">03 · СОЗДАНИЕ КЛАСТЕРА</span>
   <h2>Что происходит после нажатия «создать»</h2>
-  <p class="sub">Запрос не ждёт, пока поднимутся машины: API проверяет права и квоту, записывает желаемое состояние и сразу отвечает. Остальное делают исполнители, и сбой посередине не теряет работу.</p>
+  <p class="sub">API проверяет права и квоту и сразу отвечает. Машины поднимаются в фоне, и сбой посередине не теряет работу.</p>
   <figure>
     <div class="seq-ctl">
       <button class="btn" id="playBtn" type="button">▶ Проиграть по шагам</button>
@@ -501,7 +515,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
       <li data-step="6"><span class="n">6</span><span>Cluster API создаёт машины и ставит Kubernetes, исполнитель ждёт готовности и ставит дополнения.</span></li>
       <li data-step="7"><span class="n">7</span><span>Резерв становится занятой квотой, действие пишется в аудит, платформа получает событие, команда — доступ.</span></li>
     </ol>
-    <figcaption>При ошибке созданное удаляется, а резерв квоты снимается только после подтверждённого удаления — чтобы не «потерять» деньги на ресурсах, которые остались в облаке.</figcaption>
+    <figcaption>При ошибке созданное удаляется. Квота освобождается только после того, как удаление подтверждено, чтобы в облаке не остались забытые ресурсы.</figcaption>
   </figure>
 </div>
 </section>
@@ -510,7 +524,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
 <div class="wrap">
   <span class="num">04 · ГЛАВНАЯ ИДЕЯ</span>
   <h2>Права решает платформа, Pier только исполняет</h2>
-  <p class="sub">У готовых платформ управления кластерами своя модель пользователей и ролей. Pier устроен наоборот: он не хранит пользователей и не принимает решений о доступе, а перед каждым действием спрашивает платформу. Поэтому его можно встроить в платформу с любой моделью прав.</p>
+  <p class="sub">Pier не хранит пользователей и роли. Перед каждым действием он спрашивает платформу, можно ли. Поэтому его можно встроить в платформу с любой моделью прав.</p>
   <div class="authz">
     <div class="card">
       <p class="json-label">Pier спрашивает платформу (формат по OpenID AuthZEN)</p>
@@ -537,7 +551,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
         <div class="model"><b>Модель 1: все разработчики команды</b><span>создают кластеры в своём тенанте</span></div>
         <div class="model"><b>Модель 2: только руководитель проекта</b><span>остальные видят кластеры и получают доступ</span></div>
       </div>
-      <p style="color:var(--muted);font-size:14px;margin:12px 0 0">На демо-стенде это два набора правил OPA. Переключение меняет адрес точки решений в настройках Pier — код сервиса не меняется.</p>
+      <p style="color:var(--muted);font-size:14px;margin:12px 0 0">Модель прав меняется на стороне платформы. Код Pier при этом не меняется.</p>
     </div>
   </div>
 </div>
@@ -547,7 +561,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
 <div class="wrap">
   <span class="num">05 · СОН И СТОИМОСТЬ</span>
   <h2>Кластер спит, пока не нужен</h2>
-  <p class="sub">Отдельный кластер дороже общего: у каждого свои машины и балансировщик. Поэтому сон, срок жизни и учёт стоимости — не дополнение, а условие, без которого отдельный кластер на каждую команду обходится слишком дорого.</p>
+  <p class="sub">Отдельный кластер дороже общего: у каждого свои машины. Поэтому неиспользуемый кластер засыпает, а ненужный удаляется по сроку.</p>
   <div class="sleep-demo">
     <div class="card" id="sleepCard">
       <div class="seg" role="group" aria-label="Состояние кластера">
@@ -579,11 +593,11 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
       </div>
     </div>
     <div class="sleep-text">
-      <p><b>Как усыпляется.</b> Pier ставит кластер на паузу в Cluster API, чтобы тот не пытался «чинить» остановленные машины, затем останавливает ВМ и балансировщик через API облака. При пробуждении — в обратном порядке: сначала управляющие узлы, потом рабочие.</p>
-      <p><b>Когда.</b> Вручную, по расписанию (ночью, в выходные) или по запросу при следующем обращении. Срок жизни (TTL) удаляет кластер, который больше не нужен, — например, после окончания теста или демо.</p>
-      <p><b>Сколько стоит.</b> До создания пользователь видит оценку в рублях в месяц. Потом Pier считает стоимость по событиям: <code>ресурсы × цена × часы</code>, а часы сна и удалённые по сроку кластеры дают сумму «сэкономлено за период» по каждой команде.</p>
+      <p><b>Как.</b> Машины и балансировщик останавливаются, диски остаются. При пробуждении кластер поднимается в том же виде.</p>
+      <p><b>Когда.</b> Вручную или по расписанию, например ночью и в выходные. Срок жизни (TTL) удаляет кластер, который больше не нужен.</p>
+      <p><b>Сколько стоит.</b> Оценка видна до создания. Потом Pier считает, сколько стоил кластер и сколько сэкономил сон, по каждой команде.</p>
       <p class="out" id="sleepOut">Сейчас оплачиваются все машины, балансировщик и диски.</p>
-      <p style="color:var(--muted);font-size:14px">Это оценка по каталогу цен облака, а не счёт. Если полный сон не подтвердится на стенде, его заменит сон только рабочих узлов — экономии меньше, но функция останется.</p>
+      <p style="color:var(--muted);font-size:14px">Это оценка по ценам облака, а не счёт.</p>
     </div>
   </div>
 
@@ -610,7 +624,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
       <text class="ts" x="350" y="34" text-anchor="middle">масштабирование, обновление версии, бэкапы</text>
     </svg>
     </div>
-    <figcaption>Спящий кластер продолжает занимать квоту команды: иначе его могло бы быть нельзя разбудить, потому что квоту заняли другие.</figcaption>
+    <figcaption>Спящий кластер занимает квоту команды, чтобы его всегда можно было разбудить.</figcaption>
   </figure>
 </div>
 </section>
@@ -619,17 +633,17 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
 <div class="wrap">
   <span class="num">06 · БЭКАПЫ</span>
   <h2>Бэкап, который проверен восстановлением</h2>
-  <p class="sub">Инфраструктуру кластера бэкапить не нужно — Pier пересоздаёт её из сохранённого описания. Бэкапятся объекты Kubernetes и данные томов, а главное — бэкапы периодически восстанавливаются, чтобы узнать о проблеме до того, как он понадобится.</p>
+  <p class="sub">Сам кластер Pier пересоздаст из описания. Сохраняются объекты Kubernetes и данные томов, а бэкапы регулярно проверяются восстановлением.</p>
   <div class="flow">
     <div class="f"><b>Кластер команды</b><span>Velero ставится как дополнение из шаблона</span></div>
     <div class="arr" aria-hidden="true">→</div>
     <div class="f"><b>По расписанию</b><span>объекты, а по желанию и тома; срок хранения задаёт Pier</span></div>
     <div class="arr" aria-hidden="true">→</div>
-    <div class="f"><b>Хранилище S3</b><span>в другом регионе или каталоге, чтобы одна авария не задела и кластер, и копию</span></div>
+    <div class="f"><b>Хранилище S3</b><span>в другом регионе, чтобы одна авария не задела и кластер, и копию</span></div>
     <div class="arr" aria-hidden="true">→</div>
-    <div class="f hi"><b>Проверка</b><span>временный кластер, восстановление, поды поднялись? результат записан, кластер удалён</span></div>
+    <div class="f hi"><b>Проверка</b><span>восстановить во временный кластер и убедиться, что всё поднялось</span></div>
   </div>
-  <p style="color:var(--muted);font-size:14px;margin:16px 0 0">Восстановление — это новый кластер из того же описания плюс восстановление из копии; можно в тот же тенант под другим именем. Согласованность данных приложений (например, дамп базы перед копией) настраивает сама команда: Pier не знает, что работает внутри.</p>
+  <p style="color:var(--muted);font-size:14px;margin:16px 0 0">Что происходит внутри приложений, Pier не знает. Например, дамп базы перед копией настраивает сама команда.</p>
 </div>
 </section>
 
@@ -637,7 +651,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
 <div class="wrap">
   <span class="num">07 · ОБЛАКА</span>
   <h2>Одно ядро, сменные адаптеры</h2>
-  <p class="sub">Логика квот, прав, сна, стоимости и бэкапов не зависит от облака. Всё облачное — машины, образы, цены, остановка ресурсов — живёт в адаптере. Подтверждение взаимозаменяемости — один набор контрактных тестов, который проходят все адаптеры.</p>
+  <p class="sub">Квоты, права, сон, стоимость и бэкапы не зависят от облака. Всё, что зависит, спрятано в адаптере. Новое облако означает новый адаптер, а не новый сервис.</p>
   <figure>
     <div class="scroll">
     <svg class="d" viewBox="0 0 900 230" role="img" aria-label="Ядро Pier подключается к адаптерам Yandex Cloud, Docker и Selectel через один интерфейс">
@@ -673,7 +687,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
 <div class="wrap">
   <span class="num">08 · ЧАСТЬ РАБОТЫ</span>
   <h2>Переработанный провайдер для Yandex Cloud</h2>
-  <p class="sub">Cluster API работает с облаком через провайдер. Для Yandex Cloud это CAPY, но его опубликованная версия v0.2.0 устарела и в таком виде не запускалась. В рамках работы провайдер переработан в собственном форке.</p>
+  <p class="sub">Cluster API работает с облаком через провайдер. Для Yandex Cloud это CAPY. Его опубликованная версия устарела и не запускалась, поэтому провайдер переработан в собственном форке.</p>
   <div class="tbl-wrap">
   <table class="tbl">
     <thead><tr><th></th><th>Исходный v0.2.0</th><th>Форк v0.3</th></tr></thead>
@@ -699,7 +713,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-bet
   <div class="grid2">
     <div class="card">
       <h3>Отличие от готовых платформ</h3>
-      <p style="margin-bottom:12px">Gardener, Kubermatic, Rancher и k0rdent решают близкую задачу и умеют намного больше. Но каждая принимает решения о доступе внутри себя. Pier — узкий компонент с документированным API, который встраивается в чужую платформу:</p>
+      <p style="margin-bottom:12px">Gardener, Kubermatic, Rancher и k0rdent умеют намного больше, но решения о доступе принимают сами. Pier — небольшой сервис, который встраивается в чужую платформу:</p>
       <ul class="plain">
         <li>права остаются у платформы;</li>
         <li>кластер принадлежит тенанту платформы, квота считается по нему;</li>
