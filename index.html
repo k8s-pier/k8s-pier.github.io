@@ -1,0 +1,814 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pier — Kubernetes-кластеры для команд</title>
+<meta name="description" content="Pier: сервис, который выдаёт командам отдельные Kubernetes-кластеры в облаке по запросу из их платформы разработки. Квоты, сон, учёт стоимости и бэкапы, а права остаются у платформы.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b6e8a'/%3E%3Cpath d='M14 40h36M20 40v12M32 40v12M44 40v12M22 40V20h12a8 8 0 0 1 0 16H22' stroke='white' stroke-width='5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f6f8fa; --surface:#ffffff; --surface-2:#eef3f6; --ink:#0f1d2b; --muted:#4b5c6d; --line:#d3dce5;
+  --accent:#0b6e8a; --accent-ink:#ffffff; --accent-soft:#dff0f5; --ok:#2c7a4b; --ok-soft:#e1f2e8;
+  --warn:#a8521b; --warn-soft:#f8e9df; --sleep:#5f53ad; --sleep-soft:#ebe8f8; --off:#9aa8b5;
+  --shadow:0 1px 2px rgba(15,29,43,.06),0 4px 16px rgba(15,29,43,.05);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b131b; --surface:#111c27; --surface-2:#172532; --ink:#e5edf4; --muted:#9db0c1; --line:#243649;
+    --accent:#4cb4d2; --accent-ink:#06202a; --accent-soft:#11303c; --ok:#5cc489; --ok-soft:#143425;
+    --warn:#e39a63; --warn-soft:#3a2516; --sleep:#a69cf2; --sleep-soft:#262245; --off:#5a6b7b;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b131b; --surface:#111c27; --surface-2:#172532; --ink:#e5edf4; --muted:#9db0c1; --line:#243649;
+  --accent:#4cb4d2; --accent-ink:#06202a; --accent-soft:#11303c; --ok:#5cc489; --ok-soft:#143425;
+  --warn:#e39a63; --warn-soft:#3a2516; --sleep:#a69cf2; --sleep-soft:#262245; --off:#5a6b7b;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--accent)}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;font-size:.9em;background:var(--surface-2);padding:.1em .35em;border-radius:5px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+header.top{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:16px;height:56px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;text-decoration:none;color:var(--ink);flex:none}
+.brand svg{width:28px;height:28px}
+nav.links{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
+nav.links::-webkit-scrollbar{display:none}
+nav.links a{color:var(--muted);text-decoration:none;font-size:14px;padding:6px 10px;border-radius:8px;white-space:nowrap}
+nav.links a:hover{background:var(--surface-2);color:var(--ink)}
+.theme-btn{flex:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;width:36px;height:36px;cursor:pointer;display:grid;place-items:center}
+.theme-btn svg{width:18px;height:18px}
+
+.hero{padding:72px 0 48px}
+.eyebrow{display:inline-block;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);padding:4px 10px;border-radius:999px}
+.hero h1{font-size:clamp(32px,5.4vw,56px);line-height:1.08;margin:18px 0 18px;letter-spacing:-.02em;max-width:820px}
+.hero h1 span{color:var(--accent)}
+.lead{font-size:clamp(17px,2vw,20px);color:var(--muted);max-width:760px;margin:0 0 28px}
+.pills{display:flex;flex-wrap:wrap;gap:10px;margin:0;padding:0;list-style:none}
+.pills li{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:14px;box-shadow:var(--shadow)}
+.pills b{color:var(--accent)}
+.note{font-size:14px;color:var(--muted);border-left:3px solid var(--warn);padding:8px 12px;background:var(--warn-soft);border-radius:0 8px 8px 0;margin:28px 0 0;max-width:760px}
+
+section{padding:56px 0;border-top:1px solid var(--line);scroll-margin-top:56px}
+section h2{font-size:clamp(24px,3.4vw,34px);line-height:1.2;margin:0 0 10px;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0 0 28px;max-width:760px}
+.num{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.06em;margin-bottom:6px;display:block}
+
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+@media (max-width:860px){.grid3,.grid4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.grid2,.grid3,.grid4{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:var(--shadow);min-width:0}
+.card h3{margin:0 0 8px;font-size:18px}
+.card p{margin:0;color:var(--muted)}
+.card .ic{width:36px;height:36px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;margin-bottom:12px}
+.card .ic svg{width:20px;height:20px}
+
+.compare .card h3{display:flex;align-items:center;gap:8px}
+.tag{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px}
+.tag.bad{background:var(--warn-soft);color:var(--warn)}
+.tag.good{background:var(--ok-soft);color:var(--ok)}
+.steps{list-style:none;margin:14px 0 0;padding:0;counter-reset:s}
+.steps li{position:relative;padding:8px 0 8px 40px;border-bottom:1px dashed var(--line);color:var(--ink)}
+.steps li:last-child{border-bottom:0}
+.steps li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:8px;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;background:var(--surface-2);color:var(--muted)}
+.compare .good-list li::before{background:var(--ok-soft);color:var(--ok)}
+.steps small{display:block;color:var(--muted);font-size:13px}
+
+figure{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+figure .scroll{overflow-x:auto}
+figcaption{font-size:13px;color:var(--muted);margin-top:10px}
+svg.d{display:block;width:100%;height:auto}
+.d text{fill:var(--ink);font-family:inherit}
+.d .t{font-size:14px}
+.d .ts{font-size:12px;fill:var(--muted)}
+.d .tb{font-size:15px;font-weight:700}
+.d .th{font-size:17px;font-weight:700}
+.d .box{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+.d .box2{fill:var(--surface-2);stroke:var(--line);stroke-width:1}
+.d .grp{fill:none;stroke:var(--line);stroke-width:1.5;stroke-dasharray:0}
+.d .pier{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
+.d .pier-in{fill:var(--surface);stroke:var(--accent);stroke-width:1;stroke-opacity:.5}
+.d .ln{stroke:var(--muted);stroke-width:1.6;fill:none}
+.d .ln.dash{stroke-dasharray:5 4}
+.d .ln.acc{stroke:var(--accent);stroke-width:2}
+.d .ah{fill:var(--muted)}
+.d .ahA{fill:var(--accent)}
+.d .cp{fill:var(--accent)}
+.d .wk{fill:var(--muted);opacity:.55}
+.d .disk{fill:var(--warn);opacity:.8}
+
+/* sequence */
+.seq .life{stroke:var(--line);stroke-width:1.5;stroke-dasharray:4 4}
+.seq .actor{fill:var(--surface-2);stroke:var(--line)}
+.seq .msg{stroke:var(--muted);stroke-width:1.5;fill:none;marker-end:url(#sq-ah)}
+.seq .msg.ret{stroke-dasharray:5 4}
+.seq .step text{transition:fill .2s}
+.seq .step .hl{fill:var(--accent-soft);opacity:0;transition:opacity .25s}
+.seq .step.active .hl{opacity:1}
+.seq .step.active .msg{stroke:var(--accent);stroke-width:2.2;marker-end:url(#sq-ahA)}
+.seq .step .badge circle{fill:var(--surface-2);stroke:var(--line)}
+.seq .step.active .badge circle{fill:var(--accent);stroke:var(--accent)}
+.seq .step.active .badge text{fill:var(--accent-ink)}
+.seq-ctl{display:flex;gap:10px;align-items:center;margin:0 0 12px;flex-wrap:wrap}
+.btn{font:inherit;font-size:14px;font-weight:600;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);padding:8px 14px;border-radius:9px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn:focus-visible,.theme-btn:focus-visible,.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.seq-list{list-style:none;padding:0;margin:16px 0 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 20px}
+@media (max-width:700px){.seq-list{grid-template-columns:minmax(0,1fr)}}
+.seq-list li{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+.seq-list li:hover{background:var(--surface-2)}
+.seq-list li.active{background:var(--accent-soft);border-color:var(--accent)}
+.seq-list .n{flex:none;width:24px;height:24px;border-radius:50%;background:var(--surface-2);color:var(--muted);display:grid;place-items:center;font-size:12px;font-weight:700}
+.seq-list li.active .n{background:var(--accent);color:var(--accent-ink)}
+.seq-list span{font-size:14px}
+
+/* authz */
+.authz{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.authz{grid-template-columns:minmax(0,1fr)}}
+pre.json{margin:0;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto;font:13px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--ink)}
+pre.json .k{color:var(--accent)}
+pre.json .s{color:var(--warn)}
+pre.json .b{color:var(--ok);font-weight:700}
+.json-label{font-size:13px;font-weight:600;color:var(--muted);margin:0 0 6px}
+.models{display:grid;gap:12px;margin-top:16px}
+.model{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--surface)}
+.model b{display:block;margin-bottom:2px}
+.model span{color:var(--muted);font-size:14px}
+
+/* sleep */
+.sleep-demo{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.sleep-demo{grid-template-columns:minmax(0,1fr)}}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;padding:3px;background:var(--surface-2);margin-bottom:16px}
+.seg button{font:inherit;font-size:14px;font-weight:600;border:0;background:transparent;color:var(--muted);padding:7px 14px;border-radius:8px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.cluster{border:1.5px solid var(--line);border-radius:14px;padding:16px;background:var(--surface)}
+.cluster h4{margin:0 0 12px;font-size:15px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.state{font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--ok-soft);color:var(--ok)}
+.sleeping .state{background:var(--sleep-soft);color:var(--sleep)}
+.rowlbl{font-size:12px;color:var(--muted);margin:10px 0 6px;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);font-size:13px;background:var(--surface);transition:all .3s}
+.chip i{width:10px;height:10px;border-radius:50%;background:var(--ok);flex:none;transition:background .3s}
+.chip em{font-style:normal;color:var(--muted);font-size:12px}
+.sleeping .chip.stop{background:repeating-linear-gradient(135deg,var(--surface-2) 0 6px,var(--surface) 6px 12px);color:var(--muted)}
+.sleeping .chip.stop i{background:var(--off)}
+.chip.keep i{background:var(--warn)}
+.bar{display:flex;height:34px;border-radius:9px;overflow:hidden;border:1px solid var(--line);margin:8px 0 8px}
+.bar div{display:grid;place-items:center;font-size:12px;font-weight:600;color:#fff;transition:all .4s;white-space:nowrap;overflow:hidden}
+.bar .c1{background:var(--accent);flex:3}
+.bar .c2{background:color-mix(in srgb,var(--accent) 65%,var(--muted));flex:4}
+.bar .c3{background:var(--sleep);flex:2}
+.bar .c4{background:var(--warn);flex:1}
+.sleeping .bar .c1,.sleeping .bar .c2,.sleeping .bar .c3{background:repeating-linear-gradient(135deg,var(--surface-2) 0 6px,var(--surface) 6px 12px);color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:10px 16px;font-size:12px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.sleep-text p{margin:0 0 12px}
+.sleep-text .out{font-weight:600}
+
+/* flow */
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:10px}
+.flow .f{flex:1 1 150px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;box-shadow:var(--shadow);min-width:0}
+.flow .f b{display:block;font-size:15px;margin-bottom:4px}
+.flow .f span{font-size:13px;color:var(--muted)}
+.flow .arr{flex:none;display:grid;place-items:center;color:var(--muted);font-size:20px}
+@media (max-width:640px){.flow{flex-direction:column}.flow .arr{transform:rotate(90deg)}}
+.flow .f.hi{border-color:var(--accent);background:var(--accent-soft)}
+
+/* table */
+.tbl{width:100%;border-collapse:collapse;font-size:15px}
+.tbl th,.tbl td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{font-size:13px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.tbl td:first-child{color:var(--muted);width:28%}
+.tbl .new{color:var(--ok);font-weight:600}
+.tbl-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+@media (max-width:640px){
+  .tbl thead{display:none}
+  .tbl,.tbl tbody,.tbl tr,.tbl td{display:block;width:100%}
+  .tbl tr{border-bottom:1px solid var(--line);padding:8px 0}
+  .tbl td{border:0;padding:4px 14px}
+  .tbl td:first-child{width:100%;font-weight:600;color:var(--ink)}
+  .tbl td[data-l]::before{content:attr(data-l);display:block;font-size:12px;color:var(--muted)}
+}
+
+ul.plain{margin:0;padding-left:20px}
+ul.plain li{margin:6px 0}
+.no li::marker{content:"✕  ";color:var(--warn)}
+
+/* timeline */
+.tl{list-style:none;margin:0;padding:0;position:relative}
+.tl::before{content:"";position:absolute;left:11px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.tl li{position:relative;padding:0 0 22px 40px}
+.tl li::before{content:"";position:absolute;left:4px;top:5px;width:16px;height:16px;border-radius:50%;background:var(--surface);border:2px solid var(--line)}
+.tl li.done::before{background:var(--ok);border-color:var(--ok)}
+.tl li.now::before{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 5px var(--accent-soft)}
+.tl b{display:block}
+.tl span{color:var(--muted);font-size:14px}
+.tl .st{font-size:12px;font-weight:700;margin-left:6px;padding:1px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted)}
+.tl .done .st{background:var(--ok-soft);color:var(--ok)}
+.tl .now .st{background:var(--accent-soft);color:var(--accent)}
+
+footer{border-top:1px solid var(--line);padding:32px 0 48px;color:var(--muted);font-size:14px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-between}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Pier, в начало">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="var(--accent)"/><path d="M14 40h36M20 40v12M32 40v12M44 40v12M22 40V20h12a8 8 0 0 1 0 16H22" stroke="var(--accent-ink)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Pier
+    </a>
+    <nav class="links" aria-label="Разделы">
+      <a href="#problem">Проблема</a>
+      <a href="#how">Как устроен</a>
+      <a href="#flow">Создание кластера</a>
+      <a href="#rights">Права</a>
+      <a href="#sleep">Сон и стоимость</a>
+      <a href="#backup">Бэкапы</a>
+      <a href="#adapters">Облака</a>
+      <a href="#capy">Провайдер</a>
+      <a href="#status">Статус</a>
+    </nav>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="Переключить тему">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+<div class="wrap">
+
+<div class="hero">
+  <span class="eyebrow">Бакалаврская ВКР · 09.03.04</span>
+  <h1>Отдельный Kubernetes-кластер для команды — <span>по запросу, а не по заявке</span></h1>
+  <p class="lead">Pier — сервис, который создаёт командам отдельные Kubernetes-кластеры на ресурсах облачного провайдера. Он следит за квотами, усыпляет кластеры, пока они не нужны, показывает их стоимость и делает бэкапы. Решения о правах при этом остаются у платформы разработки, к которой Pier подключён.</p>
+  <ul class="pills">
+    <li><b>Кластер</b> за запрос к API</li>
+    <li><b>Квота</b> на команду</li>
+    <li><b>Права</b> решает платформа</li>
+    <li><b>Сон</b>, пока кластер не нужен</li>
+    <li><b>Стоимость</b> видна заранее</li>
+    <li><b>Бэкапы</b> с проверкой восстановления</li>
+  </ul>
+  <p class="note">Проект на стадии проектирования. Здесь описано целевое устройство; часть допущений (особенно сон кластера в облаке) ещё проверяется на стенде.</p>
+</div>
+
+</div>
+
+<section id="problem">
+<div class="wrap">
+  <span class="num">01 · ПРОБЛЕМА</span>
+  <h2>Сейчас кластер получают через человека</h2>
+  <p class="sub">Командам нужны свои кластеры: для проектов, стендов, курсов, лабораторных и хакатонов. Обычно это выглядит как заявка специалисту — и всё, что дальше, держится на нём.</p>
+  <div class="grid2 compare">
+    <div class="card">
+      <h3>По заявке <span class="tag bad">сейчас</span></h3>
+      <ol class="steps">
+        <li>Найти исполнителя<small>инфраструктурная команда с очередью или свой человек, которого надо учить</small></li>
+        <li>Проверить квоту вручную</li>
+        <li>Создать машины, поставить Kubernetes, настроить сеть<small>Terraform, Ansible, kubespray или руками</small></li>
+        <li>Передать доступ<small>как именно — нигде не записано</small></li>
+        <li>Масштабировать и удалять тем же путём</li>
+      </ol>
+      <p style="margin-top:14px">Чей кластер — неизвестно. Сколько стоит — не видно. Простаивающие кластеры тратят деньги, а бэкапов нет или их никто не проверял.</p>
+    </div>
+    <div class="card">
+      <h3>С Pier <span class="tag good">цель</span></h3>
+      <ol class="steps good-list">
+        <li>Запрос из платформы или веб-интерфейса<small>размер, версия и набор дополнений берутся из шаблона</small></li>
+        <li>Права проверяет платформа, квоту — Pier<small>автоматически, в момент запроса</small></li>
+        <li>Кластер создаётся без участия человека<small>через Cluster API в облаке</small></li>
+        <li>Команда получает доступ<small>и кластер записан за её тенантом</small></li>
+        <li>Дальше — сон, срок жизни, бэкапы, отчёт о стоимости</li>
+      </ol>
+      <p style="margin-top:14px">Принадлежность, потребление и все действия фиксируются. Кластер, который никому не нужен, спит или удаляется по сроку.</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<section id="how">
+<div class="wrap">
+  <span class="num">02 · КАК УСТРОЕН</span>
+  <h2>Три участника и облако</h2>
+  <p class="sub">Платформа разработки знает, кто пользователь и что ему можно. Pier знает про квоты, кластеры и деньги. Управляющий кластер с Cluster API превращает описание кластера в машины в облаке.</p>
+  <figure>
+    <div class="scroll">
+    <svg class="d" viewBox="0 0 1040 560" role="img" aria-label="Схема: команда и платформа разработки обращаются к Pier, Pier создаёт кластеры в облаке через управляющий кластер">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+        <marker id="ahA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ahA" d="M0 0L10 5L0 10z"/></marker>
+      </defs>
+      <!-- team -->
+      <rect class="box2" x="20" y="80" width="240" height="56" rx="10"/>
+      <text class="tb" x="38" y="104">Команда</text>
+      <text class="ts" x="38" y="124">разработчики, студенты, преподаватель</text>
+      <!-- platform -->
+      <rect class="grp" x="20" y="160" width="240" height="210" rx="14"/>
+      <text class="th" x="38" y="188">Платформа разработки</text>
+      <rect class="box" x="38" y="202" width="204" height="70" rx="10"/>
+      <text class="tb" x="52" y="228">Keycloak</text>
+      <text class="ts" x="52" y="248">вход, пользователи, группы</text>
+      <text class="ts" x="52" y="264">выдаёт токен (JWT)</text>
+      <rect class="box" x="38" y="286" width="204" height="70" rx="10"/>
+      <text class="tb" x="52" y="312">OPA</text>
+      <text class="ts" x="52" y="332">решает, можно ли действие</text>
+      <text class="ts" x="52" y="348">правила на Rego</text>
+      <!-- pier -->
+      <rect class="pier" x="360" y="40" width="260" height="330" rx="14"/>
+      <text class="th" x="378" y="68" style="fill:var(--accent)">Pier</text>
+      <rect class="pier-in" x="378" y="82" width="224" height="52" rx="9"/>
+      <text class="tb" x="392" y="104">API и веб-интерфейс</text>
+      <text class="ts" x="392" y="122">принимает запросы, отвечает сразу</text>
+      <rect class="pier-in" x="378" y="146" width="224" height="52" rx="9"/>
+      <text class="tb" x="392" y="168">Исполнители</text>
+      <text class="ts" x="392" y="186">доводят кластер до нужного вида</text>
+      <rect class="pier-in" x="378" y="210" width="224" height="52" rx="9"/>
+      <text class="tb" x="392" y="232">PostgreSQL</text>
+      <text class="ts" x="392" y="250">желаемое состояние, квоты, учёт</text>
+      <rect class="pier-in" x="378" y="274" width="224" height="80" rx="9"/>
+      <text class="tb" x="392" y="296">Адаптеры облаков</text>
+      <text class="ts" x="392" y="314">Yandex Cloud — основной</text>
+      <text class="ts" x="392" y="330">Docker — для тестов</text>
+      <text class="ts" x="392" y="346">Selectel — по возможности</text>
+      <!-- arrows team->pier -->
+      <line class="ln acc" x1="260" y1="108" x2="358" y2="108" marker-end="url(#ahA)"/>
+      <text class="ts" x="310" y="100" text-anchor="middle">запрос + JWT</text>
+      <!-- pier -> keycloak -->
+      <line class="ln" x1="360" y1="237" x2="244" y2="237" marker-end="url(#ah)"/>
+      <text class="ts" x="302" y="229" text-anchor="middle">ключи JWKS</text>
+      <!-- pier -> opa -->
+      <line class="ln acc" x1="360" y1="314" x2="244" y2="314" marker-end="url(#ahA)"/>
+      <text class="ts" x="302" y="306" text-anchor="middle">можно ли?</text>
+      <text class="ts" x="302" y="332" text-anchor="middle">да / нет</text>
+      <!-- events -->
+      <line class="ln dash" x1="360" y1="168" x2="262" y2="168" marker-end="url(#ah)"/>
+      <text class="ts" x="310" y="160" text-anchor="middle">события</text>
+      <!-- mgmt -->
+      <rect class="box" x="360" y="430" width="260" height="100" rx="12"/>
+      <text class="th" x="378" y="458">Управляющий кластер</text>
+      <text class="ts" x="378" y="480">Cluster API + провайдер облака</text>
+      <text class="ts" x="378" y="498">(CAPY для Yandex Cloud, CAPD для Docker)</text>
+      <text class="ts" x="378" y="516">одна ВМ с K3s</text>
+      <line class="ln" x1="490" y1="370" x2="490" y2="428" marker-end="url(#ah)"/>
+      <text class="ts" x="500" y="404">описание кластера</text>
+      <!-- cloud -->
+      <rect class="grp" x="740" y="40" width="280" height="490" rx="14"/>
+      <text class="th" x="758" y="68">Облако (Yandex Cloud)</text>
+      <rect class="box2" x="758" y="84" width="244" height="64" rx="10"/>
+      <text class="tb" x="772" y="110">Объектное хранилище S3</text>
+      <text class="ts" x="772" y="130">бэкапы, в другом регионе или каталоге</text>
+      <line class="ln dash" x1="880" y1="196" x2="880" y2="150" marker-end="url(#ah)"/>
+      <text class="ts" x="890" y="178">Velero</text>
+      <g>
+        <rect class="box" x="758" y="198" width="244" height="72" rx="10"/>
+        <text class="tb" x="772" y="222">Кластер команды A</text>
+        <rect class="cp" x="772" y="236" width="20" height="20" rx="4"/><rect class="cp" x="796" y="236" width="20" height="20" rx="4"/><rect class="cp" x="820" y="236" width="20" height="20" rx="4"/>
+        <rect class="wk" x="852" y="236" width="20" height="20" rx="4"/><rect class="wk" x="876" y="236" width="20" height="20" rx="4"/><rect class="wk" x="900" y="236" width="20" height="20" rx="4"/>
+      </g>
+      <g>
+        <rect class="box" x="758" y="282" width="244" height="72" rx="10"/>
+        <text class="tb" x="772" y="306">Кластер команды B</text>
+        <rect class="cp" x="772" y="320" width="20" height="20" rx="4"/>
+        <rect class="wk" x="804" y="320" width="20" height="20" rx="4"/><rect class="wk" x="828" y="320" width="20" height="20" rx="4"/>
+      </g>
+      <g opacity=".75">
+        <rect class="box" x="758" y="366" width="244" height="72" rx="10" style="stroke-dasharray:5 4"/>
+        <text class="tb" x="772" y="390">Кластер курса C</text>
+        <text class="ts" x="772" y="412">спит: машины остановлены,</text>
+        <text class="ts" x="772" y="428">диски сохранены</text>
+      </g>
+      <rect class="cp" x="760" y="460" width="12" height="12" rx="3"/><text class="ts" x="778" y="470">управляющие узлы</text>
+      <rect class="wk" x="760" y="480" width="12" height="12" rx="3"/><text class="ts" x="778" y="490">рабочие узлы</text>
+      <text class="ts" x="760" y="514">у каждого кластера свои ВМ и балансировщик</text>
+      <!-- mgmt -> cloud -->
+      <line class="ln" x1="620" y1="480" x2="738" y2="480" marker-end="url(#ah)"/>
+      <text class="ts" x="680" y="470" text-anchor="middle">создаёт</text>
+      <text class="ts" x="680" y="498" text-anchor="middle">ВМ, сеть, LB</text>
+    </svg>
+    </div>
+    <figcaption>Pier не обращается к облаку напрямую ради создания машин: он записывает, каким должен быть кластер, а Cluster API в управляющем кластере доводит облако до этого описания. Если управляющий кластер упадёт, уже созданные кластеры команд продолжат работать.</figcaption>
+  </figure>
+
+  <div class="grid4" style="margin-top:20px">
+    <div class="card"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></div><h3>Тенант</h3><p>Команда или проект. К нему привязаны квота, кластеры и учёт стоимости.</p></div>
+    <div class="card"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 20V10"/></svg></div><h3>Шаблон</h3><p>Размер, версия Kubernetes и дополнения: сеть, интеграция с облаком, бэкапы.</p></div>
+    <div class="card"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg></div><h3>Согласование</h3><p>Сервис хранит, каким кластер должен быть, и раз за разом приводит к этому то, что есть.</p></div>
+    <div class="card"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V3"/><path d="M8 3h8"/></svg></div><h3>Адаптер</h3><p>Всё, что зависит от конкретного облака, спрятано за одним интерфейсом.</p></div>
+  </div>
+</div>
+</section>
+
+<section id="flow">
+<div class="wrap">
+  <span class="num">03 · СОЗДАНИЕ КЛАСТЕРА</span>
+  <h2>Что происходит после нажатия «создать»</h2>
+  <p class="sub">Запрос не ждёт, пока поднимутся машины: API проверяет права и квоту, записывает желаемое состояние и сразу отвечает. Остальное делают исполнители, и сбой посередине не теряет работу.</p>
+  <figure>
+    <div class="seq-ctl">
+      <button class="btn" id="playBtn" type="button">▶ Проиграть по шагам</button>
+      <button class="btn ghost" id="resetBtn" type="button">Сбросить</button>
+    </div>
+    <div class="scroll">
+    <svg class="d seq" viewBox="0 0 940 590" role="img" aria-label="Диаграмма последовательности создания кластера">
+      <defs>
+        <marker id="sq-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+        <marker id="sq-ahA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ahA" d="M0 0L10 5L0 10z"/></marker>
+      </defs>
+      <!-- actors -->
+      <g>
+        <rect class="actor" x="20" y="16" width="110" height="44" rx="9"/><text class="tb" x="75" y="43" text-anchor="middle">Команда</text>
+        <rect class="actor" x="180" y="16" width="110" height="44" rx="9"/><text class="tb" x="235" y="43" text-anchor="middle">API Pier</text>
+        <rect class="actor" x="340" y="16" width="110" height="44" rx="9"/><text class="tb" x="395" y="43" text-anchor="middle">Платформа</text>
+        <rect class="actor" x="500" y="16" width="110" height="44" rx="9"/><text class="tb" x="555" y="43" text-anchor="middle">База Pier</text>
+        <rect class="actor" x="660" y="16" width="110" height="44" rx="9"/><text class="tb" x="715" y="43" text-anchor="middle">Исполнитель</text>
+        <rect class="actor" x="810" y="16" width="120" height="44" rx="9"/><text class="tb" x="870" y="43" text-anchor="middle">Cluster API</text>
+        <line class="life" x1="75" y1="60" x2="75" y2="580"/>
+        <line class="life" x1="235" y1="60" x2="235" y2="580"/>
+        <line class="life" x1="395" y1="60" x2="395" y2="580"/>
+        <line class="life" x1="555" y1="60" x2="555" y2="580"/>
+        <line class="life" x1="715" y1="60" x2="715" y2="580"/>
+        <line class="life" x1="870" y1="60" x2="870" y2="580"/>
+      </g>
+      <g class="step" data-step="1">
+        <rect class="hl" x="8" y="74" width="924" height="44" rx="8"/>
+        <g class="badge"><circle cx="20" cy="96" r="10"/><text x="20" y="100" text-anchor="middle" style="font-size:11px;font-weight:700">1</text></g>
+        <line class="msg" x1="75" y1="102" x2="233" y2="102"/>
+        <text class="ts" x="155" y="94" text-anchor="middle">создать кластер + JWT</text>
+      </g>
+      <g class="step" data-step="2">
+        <rect class="hl" x="8" y="122" width="924" height="70" rx="8"/>
+        <g class="badge"><circle cx="20" cy="144" r="10"/><text x="20" y="148" text-anchor="middle" style="font-size:11px;font-weight:700">2</text></g>
+        <line class="msg" x1="235" y1="148" x2="393" y2="148"/>
+        <text class="ts" x="315" y="140" text-anchor="middle">можно cluster.create?</text>
+        <line class="msg ret" x1="395" y1="178" x2="237" y2="178"/>
+        <text class="ts" x="315" y="172" text-anchor="middle">да</text>
+      </g>
+      <g class="step" data-step="3">
+        <rect class="hl" x="8" y="196" width="924" height="50" rx="8"/>
+        <g class="badge"><circle cx="20" cy="220" r="10"/><text x="20" y="224" text-anchor="middle" style="font-size:11px;font-weight:700">3</text></g>
+        <path class="msg" d="M235 210h34v22h-32"/>
+        <text class="ts" x="278" y="226">шаблон, возможности облака, оценка стоимости</text>
+      </g>
+      <g class="step" data-step="4">
+        <rect class="hl" x="8" y="250" width="924" height="76" rx="8"/>
+        <g class="badge"><circle cx="20" cy="272" r="10"/><text x="20" y="276" text-anchor="middle" style="font-size:11px;font-weight:700">4</text></g>
+        <line class="msg" x1="235" y1="278" x2="553" y2="278"/>
+        <text class="ts" x="395" y="270" text-anchor="middle">резерв квоты + желаемое состояние (одна транзакция)</text>
+        <line class="msg ret" x1="235" y1="310" x2="77" y2="310"/>
+        <text class="ts" x="155" y="304" text-anchor="middle">202: принято</text>
+      </g>
+      <g class="step" data-step="5">
+        <rect class="hl" x="8" y="330" width="924" height="80" rx="8"/>
+        <g class="badge"><circle cx="20" cy="352" r="10"/><text x="20" y="356" text-anchor="middle" style="font-size:11px;font-weight:700">5</text></g>
+        <line class="msg" x1="715" y1="356" x2="557" y2="356"/>
+        <text class="ts" x="635" y="348" text-anchor="middle">что нужно сделать?</text>
+        <line class="msg" x1="715" y1="390" x2="868" y2="390"/>
+        <text class="ts" x="792" y="382" text-anchor="middle">описание кластера</text>
+      </g>
+      <g class="step" data-step="6">
+        <rect class="hl" x="8" y="414" width="924" height="58" rx="8"/>
+        <g class="badge"><circle cx="20" cy="438" r="10"/><text x="20" y="442" text-anchor="middle" style="font-size:11px;font-weight:700">6</text></g>
+        <path class="msg" d="M870 420h34v18h-32"/>
+        <text class="ts" x="862" y="434" text-anchor="end">ВМ, сеть, LB, kubeadm</text>
+        <line class="msg" x1="715" y1="462" x2="868" y2="462"/>
+        <text class="ts" x="792" y="455" text-anchor="middle">готов? ставит дополнения</text>
+      </g>
+      <g class="step" data-step="7">
+        <rect class="hl" x="8" y="474" width="924" height="104" rx="8"/>
+        <g class="badge"><circle cx="20" cy="496" r="10"/><text x="20" y="500" text-anchor="middle" style="font-size:11px;font-weight:700">7</text></g>
+        <line class="msg" x1="715" y1="500" x2="557" y2="500"/>
+        <text class="ts" x="636" y="492" text-anchor="middle">квота занята, кластер готов, аудит</text>
+        <line class="msg ret" x1="715" y1="534" x2="397" y2="534"/>
+        <text class="ts" x="556" y="528" text-anchor="middle">событие «кластер готов»</text>
+        <line class="msg ret" x1="235" y1="566" x2="77" y2="566"/>
+        <text class="ts" x="155" y="560" text-anchor="middle">доступ (kubeconfig)</text>
+      </g>
+    </svg>
+    </div>
+    <ol class="seq-list" id="seqList">
+      <li data-step="1"><span class="n">1</span><span>Команда отправляет запрос из платформы или веб-интерфейса с токеном входа.</span></li>
+      <li data-step="2"><span class="n">2</span><span>Pier проверяет подпись токена и спрашивает у платформы, разрешено ли действие.</span></li>
+      <li data-step="3"><span class="n">3</span><span>Параметры сверяются с шаблоном и возможностями облака, считается оценка стоимости.</span></li>
+      <li data-step="4"><span class="n">4</span><span>В одной транзакции резервируется квота и записывается желаемое состояние. Два параллельных запроса не превысят квоту.</span></li>
+      <li data-step="5"><span class="n">5</span><span>Исполнитель видит новый кластер и передаёт его описание в Cluster API.</span></li>
+      <li data-step="6"><span class="n">6</span><span>Cluster API создаёт машины и ставит Kubernetes, исполнитель ждёт готовности и ставит дополнения.</span></li>
+      <li data-step="7"><span class="n">7</span><span>Резерв становится занятой квотой, действие пишется в аудит, платформа получает событие, команда — доступ.</span></li>
+    </ol>
+    <figcaption>При ошибке созданное удаляется, а резерв квоты снимается только после подтверждённого удаления — чтобы не «потерять» деньги на ресурсах, которые остались в облаке.</figcaption>
+  </figure>
+</div>
+</section>
+
+<section id="rights">
+<div class="wrap">
+  <span class="num">04 · ГЛАВНАЯ ИДЕЯ</span>
+  <h2>Права решает платформа, Pier только исполняет</h2>
+  <p class="sub">У готовых платформ управления кластерами своя модель пользователей и ролей. Pier устроен наоборот: он не хранит пользователей и не принимает решений о доступе, а перед каждым действием спрашивает платформу. Поэтому его можно встроить в платформу с любой моделью прав.</p>
+  <div class="authz">
+    <div class="card">
+      <p class="json-label">Pier спрашивает платформу (формат по OpenID AuthZEN)</p>
+<pre class="json">{
+  <span class="k">"subject"</span>:  { <span class="k">"type"</span>: <span class="s">"user"</span>, <span class="k">"id"</span>: <span class="s">"alice"</span> },
+  <span class="k">"action"</span>:   { <span class="k">"name"</span>: <span class="s">"cluster.create"</span> },
+  <span class="k">"resource"</span>: { <span class="k">"type"</span>: <span class="s">"cluster"</span>,
+                <span class="k">"properties"</span>: { <span class="k">"tenant"</span>: <span class="s">"team-a"</span> } }
+}</pre>
+      <p class="json-label" style="margin-top:14px">Платформа отвечает</p>
+<pre class="json">{ <span class="k">"decision"</span>: <span class="b">true</span> }</pre>
+    </div>
+    <div>
+      <div class="card">
+        <h3>Что требуется от платформы</h3>
+        <ul class="plain">
+          <li><b>Вход:</b> выдать пользователю токен JWT, который проверяется по открытым ключам.</li>
+          <li><b>Тенанты:</b> свои команды, если есть. Если нет — Pier ведёт их сам по группам из токена.</li>
+          <li><b>Решения:</b> отвечать «да» или «нет» на вопрос о действии.</li>
+          <li><b>События</b> (по желанию): принимать уведомления «кластер готов», «бэкап не прошёл».</li>
+        </ul>
+      </div>
+      <div class="models">
+        <div class="model"><b>Модель 1: все разработчики команды</b><span>создают кластеры в своём тенанте</span></div>
+        <div class="model"><b>Модель 2: только руководитель проекта</b><span>остальные видят кластеры и получают доступ</span></div>
+      </div>
+      <p style="color:var(--muted);font-size:14px;margin:12px 0 0">На демо-стенде это два набора правил OPA. Переключение меняет адрес точки решений в настройках Pier — код сервиса не меняется.</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<section id="sleep">
+<div class="wrap">
+  <span class="num">05 · СОН И СТОИМОСТЬ</span>
+  <h2>Кластер спит, пока не нужен</h2>
+  <p class="sub">Отдельный кластер дороже общего: у каждого свои машины и балансировщик. Поэтому сон, срок жизни и учёт стоимости — не дополнение, а условие, без которого отдельные кластеры для учебной группы обходятся слишком дорого.</p>
+  <div class="sleep-demo">
+    <div class="card" id="sleepCard">
+      <div class="seg" role="group" aria-label="Состояние кластера">
+        <button type="button" data-mode="run" aria-pressed="true">Работает</button>
+        <button type="button" data-mode="sleep" aria-pressed="false">Спит</button>
+      </div>
+      <div class="cluster" id="cluster">
+        <h4>Кластер курса «Администрирование Kubernetes» <span class="state" id="stateLbl">работает</span></h4>
+        <div class="rowlbl">Управляющие узлы</div>
+        <div class="chips">
+          <span class="chip stop"><i></i>ВМ 1 <em class="st">работает</em></span>
+          <span class="chip stop"><i></i>ВМ 2 <em class="st">работает</em></span>
+          <span class="chip stop"><i></i>ВМ 3 <em class="st">работает</em></span>
+        </div>
+        <div class="rowlbl">Рабочие узлы</div>
+        <div class="chips">
+          <span class="chip stop"><i></i>ВМ 4 <em class="st">работает</em></span>
+          <span class="chip stop"><i></i>ВМ 5 <em class="st">работает</em></span>
+          <span class="chip stop"><i></i>ВМ 6 <em class="st">работает</em></span>
+        </div>
+        <div class="rowlbl">Остальное</div>
+        <div class="chips">
+          <span class="chip stop" data-off="остановлен"><i></i>Балансировщик API <em class="st">работает</em></span>
+          <span class="chip keep"><i></i>Диски <em>хранятся</em></span>
+        </div>
+        <div class="rowlbl">За что платим</div>
+        <div class="bar" aria-hidden="true"><div class="c1">управляющие</div><div class="c2">рабочие</div><div class="c3">LB</div><div class="c4">диски</div></div>
+        <div class="legend"><span>Пропорции условные, для иллюстрации</span></div>
+      </div>
+    </div>
+    <div class="sleep-text">
+      <p><b>Как усыпляется.</b> Pier ставит кластер на паузу в Cluster API, чтобы тот не пытался «чинить» остановленные машины, затем останавливает ВМ и балансировщик через API облака. При пробуждении — в обратном порядке: сначала управляющие узлы, потом рабочие.</p>
+      <p><b>Когда.</b> Вручную, по расписанию (выходные, каникулы, время между занятиями) или по запросу при следующем обращении. Срок жизни (TTL) удаляет кластер, который больше не нужен, — например, после хакатона.</p>
+      <p><b>Сколько стоит.</b> До создания пользователь видит оценку в рублях в месяц. Потом Pier считает стоимость по событиям: <code>ресурсы × цена × часы</code>, а часы сна и удалённые по сроку кластеры дают сумму «сэкономлено за период» по каждой команде.</p>
+      <p class="out" id="sleepOut">Сейчас оплачиваются все машины, балансировщик и диски.</p>
+      <p style="color:var(--muted);font-size:14px">Это оценка по каталогу цен облака, а не счёт. Если полный сон не подтвердится на стенде, его заменит сон только рабочих узлов — экономии меньше, но функция останется.</p>
+    </div>
+  </div>
+
+  <figure style="margin-top:24px">
+    <div class="scroll">
+    <svg class="d" viewBox="0 0 900 260" role="img" aria-label="Жизненный цикл кластера: создаётся, работает, спит, удалён">
+      <defs>
+        <marker id="lc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+      </defs>
+      <rect class="box2" x="20" y="96" width="160" height="60" rx="30"/><text class="tb" x="100" y="131" text-anchor="middle">Создаётся</text>
+      <rect class="pier" x="270" y="96" width="160" height="60" rx="30"/><text class="tb" x="350" y="131" text-anchor="middle">Работает</text>
+      <rect class="box" x="520" y="96" width="160" height="60" rx="30" style="stroke:var(--sleep);stroke-width:2;fill:var(--sleep-soft)"/><text class="tb" x="600" y="131" text-anchor="middle">Спит</text>
+      <rect class="box" x="760" y="96" width="120" height="60" rx="30" style="stroke-dasharray:5 4"/><text class="tb" x="820" y="131" text-anchor="middle">Удалён</text>
+      <line class="ln" x1="180" y1="126" x2="268" y2="126" marker-end="url(#lc)"/>
+      <line class="ln" x1="430" y1="114" x2="518" y2="114" marker-end="url(#lc)"/>
+      <text class="ts" x="474" y="104" text-anchor="middle">усыпить</text>
+      <line class="ln" x1="520" y1="140" x2="432" y2="140" marker-end="url(#lc)"/>
+      <text class="ts" x="474" y="160" text-anchor="middle">разбудить</text>
+      <line class="ln" x1="680" y1="126" x2="758" y2="126" marker-end="url(#lc)"/>
+      <text class="ts" x="719" y="118" text-anchor="middle">TTL</text>
+      <path class="ln" d="M350 156 C350 236, 820 236, 820 158" marker-end="url(#lc)"/>
+      <text class="ts" x="585" y="232" text-anchor="middle">удалить вручную или по сроку жизни (TTL)</text>
+      <path class="ln dash" d="M325 96 C315 46, 385 46, 375 94" marker-end="url(#lc)"/>
+      <text class="ts" x="350" y="34" text-anchor="middle">масштабирование, обновление версии, бэкапы</text>
+    </svg>
+    </div>
+    <figcaption>Спящий кластер продолжает занимать квоту команды: иначе его могло бы быть нельзя разбудить, потому что квоту заняли другие.</figcaption>
+  </figure>
+</div>
+</section>
+
+<section id="backup">
+<div class="wrap">
+  <span class="num">06 · БЭКАПЫ</span>
+  <h2>Бэкап, который проверен восстановлением</h2>
+  <p class="sub">Инфраструктуру кластера бэкапить не нужно — Pier пересоздаёт её из сохранённого описания. Бэкапятся объекты Kubernetes и данные томов, а главное — бэкапы периодически восстанавливаются, чтобы узнать о проблеме до того, как он понадобится.</p>
+  <div class="flow">
+    <div class="f"><b>Кластер команды</b><span>Velero ставится как дополнение из шаблона</span></div>
+    <div class="arr" aria-hidden="true">→</div>
+    <div class="f"><b>По расписанию</b><span>объекты, а по желанию и тома; срок хранения задаёт Pier</span></div>
+    <div class="arr" aria-hidden="true">→</div>
+    <div class="f"><b>Хранилище S3</b><span>в другом регионе или каталоге, чтобы одна авария не задела и кластер, и копию</span></div>
+    <div class="arr" aria-hidden="true">→</div>
+    <div class="f hi"><b>Проверка</b><span>временный кластер, восстановление, поды поднялись? результат записан, кластер удалён</span></div>
+  </div>
+  <p style="color:var(--muted);font-size:14px;margin:16px 0 0">Восстановление — это новый кластер из того же описания плюс восстановление из копии; можно в тот же тенант под другим именем. Согласованность данных приложений (например, дамп базы перед копией) настраивает сама команда: Pier не знает, что работает внутри.</p>
+</div>
+</section>
+
+<section id="adapters">
+<div class="wrap">
+  <span class="num">07 · ОБЛАКА</span>
+  <h2>Одно ядро, сменные адаптеры</h2>
+  <p class="sub">Логика квот, прав, сна, стоимости и бэкапов не зависит от облака. Всё облачное — машины, образы, цены, остановка ресурсов — живёт в адаптере. Подтверждение взаимозаменяемости — один набор контрактных тестов, который проходят все адаптеры.</p>
+  <figure>
+    <div class="scroll">
+    <svg class="d" viewBox="0 0 900 230" role="img" aria-label="Ядро Pier подключается к адаптерам Yandex Cloud, Docker и Selectel через один интерфейс">
+      <defs><marker id="ad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker></defs>
+      <rect class="pier" x="20" y="55" width="250" height="120" rx="14"/>
+      <text class="th" x="40" y="88" style="fill:var(--accent)">Ядро Pier</text>
+      <text class="ts" x="40" y="112">тенанты, квоты, права</text>
+      <text class="ts" x="40" y="130">состояния и согласование</text>
+      <text class="ts" x="40" y="148">сон, срок жизни, стоимость, бэкапы</text>
+      <rect x="300" y="20" width="16" height="190" rx="5" style="fill:var(--accent)"/>
+      <text class="ts" x="308" y="224" text-anchor="middle">интерфейс адаптера</text>
+      <line class="ln acc" x1="270" y1="115" x2="298" y2="115"/>
+      <line class="ln" x1="316" y1="48" x2="398" y2="48" marker-end="url(#ad)"/>
+      <line class="ln" x1="316" y1="115" x2="398" y2="115" marker-end="url(#ad)"/>
+      <line class="ln dash" x1="316" y1="182" x2="398" y2="182" marker-end="url(#ad)"/>
+      <rect class="box" x="400" y="20" width="480" height="56" rx="10" style="stroke:var(--accent);stroke-width:2"/>
+      <text class="tb" x="418" y="44">Yandex Cloud · основной</text>
+      <text class="ts" x="418" y="64">Cluster API + CAPY, цены из Billing API, остановка ВМ и балансировщика</text>
+      <rect class="box" x="400" y="87" width="480" height="56" rx="10"/>
+      <text class="tb" x="418" y="111">Docker · тесты и демонстрация</text>
+      <text class="ts" x="418" y="131">Cluster API + CAPD: настоящие кластеры в контейнерах, без облака и затрат</text>
+      <rect class="box" x="400" y="154" width="480" height="56" rx="10" style="stroke-dasharray:5 4"/>
+      <text class="tb" x="418" y="178">Selectel · если хватит времени</text>
+      <text class="ts" x="418" y="198">Cluster API + CAPO (OpenStack): проверка, что меняется только адаптер</text>
+    </svg>
+    </div>
+    <figcaption>Отдельные полноценные кластеры, а не виртуальные: цель учебного сценария — администрирование Kubernetes, а для него нужен весь кластер, включая управляющие узлы и etcd.</figcaption>
+  </figure>
+</div>
+</section>
+
+<section id="capy">
+<div class="wrap">
+  <span class="num">08 · ЧАСТЬ РАБОТЫ</span>
+  <h2>Переработанный провайдер для Yandex Cloud</h2>
+  <p class="sub">Cluster API работает с облаком через провайдер. Для Yandex Cloud это CAPY, но его опубликованная версия v0.2.0 устарела и в таком виде не запускалась. В рамках работы провайдер переработан в собственном форке.</p>
+  <div class="tbl-wrap">
+  <table class="tbl">
+    <thead><tr><th></th><th>Исходный v0.2.0</th><th>Форк v0.3</th></tr></thead>
+    <tbody>
+      <tr><td>Cluster API</td><td data-l="было">v1.6</td><td data-l="стало" class="new">v1.14.4</td></tr>
+      <tr><td>Контракт провайдера</td><td data-l="было">v1beta1 — устарел, перестаёт поддерживаться в Cluster API v1.16</td><td data-l="стало" class="new">v1beta2</td></tr>
+      <tr><td>Kubernetes по умолчанию</td><td data-l="было">1.31</td><td data-l="стало" class="new">1.35 (поддерживается 1.31–1.37)</td></tr>
+      <tr><td>Установка</td><td data-l="было">сборка и развёртывание из исходников</td><td data-l="стало" class="new">одна команда <code>clusterctl init --infrastructure yandex</code></td></tr>
+      <tr><td>Запуск</td><td data-l="было">не стартовал: образ kube-rbac-proxy удалён из реестра, вебхук без сертификата отклонял создание кластера</td><td data-l="стало" class="new">ставится и работает в тестовом кластере kind</td></tr>
+      <tr><td>Тесты</td><td data-l="было"><code>make test</code> не работал из-за незакреплённой версии инструмента</td><td data-l="стало" class="new">35 сценариев контроллеров проходят</td></tr>
+      <tr><td>Найденные ошибки</td><td data-l="было">—</td><td data-l="стало" class="new">исправлено больше десяти: утечка соединений, паника без балансировщика, ресурсы от чужого сервисного аккаунта и другие</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p style="color:var(--muted);font-size:14px;margin:16px 0 0">На живом облаке форк ещё не проверялся — это первый шаг следующего этапа. Код и заметки об обновлении: <a href="https://github.com/k8s-pier/cluster-api-provider-yandex">github.com/k8s-pier/cluster-api-provider-yandex</a>.</p>
+</div>
+</section>
+
+<section id="scope">
+<div class="wrap">
+  <span class="num">09 · ГРАНИЦЫ</span>
+  <h2>Чем Pier отличается и чего не делает</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>Отличие от готовых платформ</h3>
+      <p style="margin-bottom:12px">Gardener, Kubermatic, Rancher и k0rdent решают близкую задачу и умеют намного больше. Но каждая принимает решения о доступе внутри себя. Pier — узкий компонент с документированным API, который встраивается в чужую платформу:</p>
+      <ul class="plain">
+        <li>права остаются у платформы;</li>
+        <li>кластер принадлежит тенанту платформы, квота считается по нему;</li>
+        <li>стоимость и экономия видны по каждой команде;</li>
+        <li>бэкапы проверяются восстановлением.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Чего Pier не делает</h3>
+      <ul class="plain no">
+        <li>не хранит пользователей и роли, не решает сам, кому что можно;</li>
+        <li>не управляет правами внутри кластера — команда получает администраторский доступ;</li>
+        <li>не развёртывает приложения: это не CI/CD;</li>
+        <li>не выставляет счета — только показывает стоимость;</li>
+        <li>не переносит кластеры между облаками;</li>
+        <li>не создаёт виртуальные кластеры и не собирает образы узлов.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</section>
+
+<section id="status">
+<div class="wrap">
+  <span class="num">10 · СТАТУС</span>
+  <h2>Где проект сейчас</h2>
+  <p class="sub">Порядок выбран так, чтобы узнать о препятствиях в облаке до того, как под него написан код, и отладить основное на бесплатном Docker-адаптере.</p>
+  <div class="grid2">
+    <ul class="tl">
+      <li class="done"><b>Концепция и проектирование <span class="st">готово</span></b><span>компоненты, сценарии, модель данных, API, контракт с платформой, риски</span></li>
+      <li class="done"><b>Переработка провайдера CAPY <span class="st">готово</span></b><span>Cluster API v1.14, контракт v1beta2, проверено без облака</span></li>
+      <li class="now"><b>Проверка на облаке <span class="st">следующий шаг</span></b><span>создать, усыпить, разбудить и удалить кластер в Yandex Cloud вручную</span></li>
+      <li><b>Каркас сервиса</b><span>API, база, вход, права, квоты</span></li>
+    </ul>
+    <ul class="tl">
+      <li><b>Согласование и Docker-адаптер</b><span>кластер создаётся, масштабируется и удаляется без облака</span></li>
+      <li><b>Дополнения и бэкапы</b><span>копия и восстановление</span></li>
+      <li><b>Адаптер Yandex Cloud</b><span>то же самое в облаке, те же тесты</span></li>
+      <li><b>Сон, срок жизни, стоимость, интерфейс, замеры</b><span>демонстрация и экономическая часть</span></li>
+    </ul>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <h3>Что увидит зритель демонстрации</h3>
+    <p>Стенд с Keycloak и OPA вместо настоящей платформы: создать, масштабировать, усыпить, забэкапить, восстановить и удалить кластер; упереться в квоту; убедиться, что чужая команда не видит твой кластер; поменять правила на платформе и увидеть, как меняются доступные действия; посмотреть стоимость и экономию по команде.</p>
+  </div>
+</div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div><b style="color:var(--ink)">Pier</b> — «Сервис создания Kubernetes-кластеров для платформ разработки на основе ресурсов облачного провайдера», бакалаврская ВКР.</div>
+    <div><a href="https://github.com/k8s-pier">github.com/k8s-pier</a></div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // theme
+  var root=document.documentElement, btn=document.getElementById('themeBtn');
+  try{var saved=localStorage.getItem('pier-theme'); if(saved) root.setAttribute('data-theme',saved);}catch(e){}
+  btn.addEventListener('click',function(){
+    var cur=root.getAttribute('data-theme');
+    if(!cur){cur=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}
+    var next=cur==='dark'?'light':'dark';
+    root.setAttribute('data-theme',next);
+    try{localStorage.setItem('pier-theme',next);}catch(e){}
+  });
+
+  // sequence
+  var steps=[].slice.call(document.querySelectorAll('.seq .step'));
+  var items=[].slice.call(document.querySelectorAll('#seqList li'));
+  var timer=null;
+  function show(n){
+    steps.forEach(function(s){s.classList.toggle('active',+s.dataset.step===n)});
+    items.forEach(function(s){s.classList.toggle('active',+s.dataset.step===n)});
+  }
+  function stop(){if(timer){clearInterval(timer);timer=null;} document.getElementById('playBtn').textContent='▶ Проиграть по шагам';}
+  items.forEach(function(li){li.addEventListener('click',function(){stop();show(+li.dataset.step)})});
+  steps.forEach(function(g){g.style.cursor='pointer';g.addEventListener('click',function(){stop();show(+g.dataset.step)})});
+  document.getElementById('playBtn').addEventListener('click',function(){
+    if(timer){stop();return;}
+    var n=0; this.textContent='❚❚ Пауза';
+    var tick=function(){n++; if(n>7){stop();return;} show(n);};
+    tick(); timer=setInterval(tick,1800);
+  });
+  document.getElementById('resetBtn').addEventListener('click',function(){stop();show(0)});
+
+  // sleep
+  var card=document.getElementById('sleepCard'), lbl=document.getElementById('stateLbl'), out=document.getElementById('sleepOut');
+  [].forEach.call(card.querySelectorAll('.seg button'),function(b){
+    b.addEventListener('click',function(){
+      var sleep=b.dataset.mode==='sleep';
+      card.querySelectorAll('.seg button').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false')});
+      card.classList.toggle('sleeping',sleep);
+      lbl.textContent=sleep?'спит':'работает';
+      card.querySelectorAll('.chip.stop').forEach(function(c){c.querySelector('.st').textContent=sleep?(c.dataset.off||'остановлена'):'работает'});
+      out.textContent=sleep?'Во сне оплачиваются только диски: машины и балансировщик остановлены, кластер на паузе в Cluster API.':'Сейчас оплачиваются все машины, балансировщик и диски.';
+    });
+  });
+})();
+</script>
+</body>
+</html>
